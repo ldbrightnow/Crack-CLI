@@ -1,3 +1,7 @@
+import { GitCliBranchManager } from "./git";
+import type { BranchManager } from "./git";
+import { CodexPlannerAgent } from "./planner-agent";
+import type { PlannerAgent } from "./planner-agent";
 import { CodexRouterAgent } from "./router-agent";
 import type { RouterAgent, RouterAgentDecision } from "./router-agent";
 import { MarkdownState, slugify, titleFromPrompt } from "./state";
@@ -19,10 +23,22 @@ export type RouteOptions = {
 };
 
 export class Router {
+  private readonly state: MarkdownState;
+  private readonly agent: RouterAgent;
+  private readonly planner: PlannerAgent;
+  private readonly branchManager: BranchManager;
+
   constructor(
-    private readonly state: MarkdownState,
-    private readonly agent: RouterAgent = new CodexRouterAgent(),
-  ) {}
+    state: MarkdownState,
+    agent: RouterAgent = new CodexRouterAgent(),
+    planner: PlannerAgent = new CodexPlannerAgent(),
+    branchManager?: BranchManager,
+  ) {
+    this.state = state;
+    this.agent = agent;
+    this.planner = planner;
+    this.branchManager = branchManager ?? new GitCliBranchManager(state.repoRoot);
+  }
 
   async route(prompt: string, options: RouteOptions = {}): Promise<RouteDecision> {
     await this.state.initialize();
@@ -58,7 +74,7 @@ export class Router {
     const title = options.planTitle ?? titleFromPrompt(prompt);
     const branchName = options.branchName ?? `codex/${slugify(title).toLowerCase()}`;
     const reason = options.reason ?? "No PR lock or selected active plan; created a new plan.";
-    const paths = await this.state.createPlan({
+    const paths = await this.createNewPlan({
       branchName,
       planTitle: title,
       prompt,
@@ -66,7 +82,7 @@ export class Router {
       receivedAt: options.receivedAt,
     });
 
-    return { action: "create_new_plan", target: paths.plan, reason };
+    return { action: "create_new_plan", target: paths, reason };
   }
 
   private async applyAgentDecision(
@@ -86,7 +102,7 @@ export class Router {
 
     const title = decision.planTitle ?? titleFromPrompt(prompt);
     const branchName = decision.branchName ?? `codex/${slugify(title).toLowerCase()}`;
-    const paths = await this.state.createPlan({
+    const planPath = await this.createNewPlan({
       branchName,
       planTitle: title,
       prompt,
@@ -94,6 +110,44 @@ export class Router {
       receivedAt,
     });
 
-    return { action: "create_new_plan", target: paths.plan, reason: decision.reason };
+    return { action: "create_new_plan", target: planPath, reason: decision.reason };
   }
+
+  private async createNewPlan(options: {
+    branchName: string;
+    planTitle: string;
+    prompt: string;
+    reason: string;
+    receivedAt?: string;
+  }): Promise<string> {
+    await this.branchManager.prepareBranch(options.branchName);
+
+    const paths = await this.state.createPlan(options);
+    await this.planner.writePlan({
+      repoRoot: this.state.repoRoot,
+      branchName: options.branchName,
+      planTitle: options.planTitle,
+      planPath: paths.plan,
+      queuePath: paths.queue,
+      logPath: paths.log,
+      prompt: options.prompt,
+      reason: options.reason,
+    });
+    await this.state.appendPlanLog(
+      paths,
+      [
+        `Created or switched to branch \`${options.branchName}\`.`,
+        `Planner wrote \`${relativePath(this.state.repoRoot, paths.plan)}\`.`,
+      ],
+      options.receivedAt,
+    );
+
+    return paths.plan;
+  }
+}
+
+function relativePath(repoRoot: string, filePath: string): string {
+  return filePath.startsWith(repoRoot)
+    ? filePath.slice(repoRoot.length + 1).split(/[\\/]/).join("/")
+    : filePath;
 }

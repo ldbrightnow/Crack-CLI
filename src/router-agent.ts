@@ -1,8 +1,8 @@
-import { spawn } from "node:child_process";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
+import { runProcess } from "./process";
 import type { ActivePlan } from "./state";
 
 export type RouterAgentInput = {
@@ -73,8 +73,7 @@ export class CodexRouterAgent implements RouterAgent {
           ...this.extraArgs,
           "-",
         ],
-        prompt,
-        repoRoot,
+        { cwd: repoRoot, input: prompt },
       );
 
       if (result.status !== 0) {
@@ -200,37 +199,4 @@ function fence(value: string): string {
 
 function relativePath(repoRoot: string, filePath: string): string {
   return path.relative(repoRoot, filePath).split(path.sep).join("/");
-}
-
-function runProcess(
-  command: string,
-  args: string[],
-  input: string,
-  cwd: string,
-): Promise<{ status: number; stdout: string; stderr: string }> {
-  return new Promise((resolve, reject) => {
-    const child = spawn(command, args, {
-      cwd,
-      env: process.env,
-      stdio: ["pipe", "pipe", "pipe"],
-    });
-
-    let stdout = "";
-    let stderr = "";
-
-    child.stdout.setEncoding("utf8");
-    child.stderr.setEncoding("utf8");
-    child.stdout.on("data", (chunk: string) => {
-      stdout += chunk;
-    });
-    child.stderr.on("data", (chunk: string) => {
-      stderr += chunk;
-    });
-    child.on("error", reject);
-    child.on("close", (status) => {
-      resolve({ status: status ?? 1, stdout, stderr });
-    });
-
-    child.stdin.end(input);
-  });
 }

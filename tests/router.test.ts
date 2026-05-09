@@ -1,9 +1,12 @@
-import { mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
+import type { BranchManager } from "../src/git";
+import type { PlannerAgent, PlannerAgentInput, PlannerAgentResult } from "../src/planner-agent";
+import { parsePlanWritten } from "../src/planner-agent";
 import { Router } from "../src/router";
 import { parseRouteDecision } from "../src/router-agent";
 import type { RouterAgent, RouterAgentDecision, RouterAgentInput } from "../src/router-agent";
@@ -12,8 +15,10 @@ import { MarkdownState } from "../src/state";
 test("route creates a new plan when no lock or plan is selected", async () => {
   await withRepo(async (root) => {
     const state = new MarkdownState(root);
+    const planner = new StubPlannerAgent();
+    const branches = new StubBranchManager();
 
-    const decision = await new Router(state).route("Add router state files", {
+    const decision = await new Router(state, new UnusedRouterAgent(), planner, branches).route("Add router state files", {
       branchName: "codex/router-state",
       planTitle: "Router State",
       receivedAt: "2026-05-09 12:00",
@@ -22,8 +27,13 @@ test("route creates a new plan when no lock or plan is selected", async () => {
     const planDir = path.join(root, ".crack", "plans", "codex-router-state");
     assert.equal(decision.action, "create_new_plan");
     assert.equal(decision.target, path.join(planDir, "plan.md"));
+    assert.deepEqual(branches.preparedBranches, ["codex/router-state"]);
+    assert.equal(planner.inputs.length, 1);
+    assert.equal(planner.inputs[0].branchName, "codex/router-state");
     assert.match(await readFile(path.join(planDir, "plan.md"), "utf8"), /Branch: codex\/router-state/);
+    assert.match(await readFile(path.join(planDir, "plan.md"), "utf8"), /Planned by stub planner/);
     assert.match(await readFile(path.join(planDir, "queue.md"), "utf8"), /# Queue/);
+    assert.match(await readFile(path.join(planDir, "log.md"), "utf8"), /Planner wrote `.crack\/plans\/codex-router-state\/plan.md`/);
   });
 });
 
@@ -100,6 +110,8 @@ test("route asks the router agent when active plans exist", async () => {
 test("route creates a new plan from the router agent decision", async () => {
   await withRepo(async (root) => {
     const state = new MarkdownState(root);
+    const planner = new StubPlannerAgent();
+    const branches = new StubBranchManager();
     await state.createPlan({
       branchName: "codex/current",
       planTitle: "Current",
@@ -114,14 +126,17 @@ test("route creates a new plan from the router agent decision", async () => {
       reason: "Independent work.",
     });
 
-    const decision = await new Router(state, agent).route("Add separate feature", {
+    const decision = await new Router(state, agent, planner, branches).route("Add separate feature", {
       receivedAt: "2026-05-09 12:05",
     });
 
     const planPath = path.join(root, ".crack", "plans", "codex-separate", "plan.md");
     assert.equal(decision.action, "create_new_plan");
     assert.equal(decision.target, planPath);
+    assert.deepEqual(branches.preparedBranches, ["codex/separate"]);
+    assert.equal(planner.inputs.length, 1);
     assert.match(await readFile(planPath, "utf8"), /# Plan: Separate/);
+    assert.match(await readFile(planPath, "utf8"), /Planned by stub planner/);
   });
 });
 
@@ -145,6 +160,13 @@ test("parseRouteDecision reads router final response lines", () => {
   );
 });
 
+test("parsePlanWritten reads planner final response lines", () => {
+  assert.equal(
+    parsePlanWritten('notes\nPLAN_WRITTEN path=".crack/plans/demo/plan.md"'),
+    ".crack/plans/demo/plan.md",
+  );
+});
+
 async function withRepo(run: (root: string) => Promise<void>): Promise<void> {
   const root = await mkdtemp(path.join(tmpdir(), "crack-"));
 
@@ -164,5 +186,50 @@ class StubRouterAgent implements RouterAgent {
   async decide(input: RouterAgentInput): Promise<RouterAgentDecision> {
     this.inputs.push(input);
     return this.decision;
+  }
+}
+
+class UnusedRouterAgent implements RouterAgent {
+  async decide(): Promise<RouterAgentDecision> {
+    throw new Error("Router agent should not be called");
+  }
+}
+
+class StubPlannerAgent implements PlannerAgent {
+  readonly inputs: PlannerAgentInput[] = [];
+
+  async writePlan(input: PlannerAgentInput): Promise<PlannerAgentResult> {
+    this.inputs.push(input);
+    await writeFile(
+      input.planPath,
+      [
+        `# Plan: ${input.planTitle}`,
+        "",
+        `Branch: ${input.branchName}`,
+        "",
+        "## Intent",
+        "",
+        input.prompt,
+        "",
+        "## Commit Units",
+        "",
+        "### Commit 1: Planned by stub planner",
+        "",
+      ].join("\n"),
+      "utf8",
+    );
+
+    return {
+      path: path.relative(input.repoRoot, input.planPath),
+      finalMessage: `PLAN_WRITTEN path="${path.relative(input.repoRoot, input.planPath)}"`,
+    };
+  }
+}
+
+class StubBranchManager implements BranchManager {
+  readonly preparedBranches: string[] = [];
+
+  async prepareBranch(branchName: string): Promise<void> {
+    this.preparedBranches.push(branchName);
   }
 }

@@ -209,6 +209,32 @@ export class MarkdownState {
     return paths.queue;
   }
 
+  async appendPlanLog(planPath: string | PlanPaths, entries: string[], loggedAt = timestamp()): Promise<string> {
+    await this.initialize();
+
+    const paths = typeof planPath === "string" ? this.existingPlanPaths(planPath) : planPath;
+    if (!existsSync(paths.directory)) {
+      throw new Error(`Plan does not exist: ${paths.directory}`);
+    }
+
+    if (!existsSync(paths.log)) {
+      await writeFile(paths.log, "# Log\n\n", "utf8");
+    }
+
+    await appendFile(
+      paths.log,
+      [
+        `## ${loggedAt}`,
+        "",
+        ...entries.map((entry) => `- ${entry}`),
+        "",
+      ].join("\n"),
+      "utf8",
+    );
+
+    return paths.log;
+  }
+
   async setPrLock(options: {
     branchName: string;
     prUrl: string;

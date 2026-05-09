@@ -1,5 +1,18 @@
 export { Router } from "./router";
 export type { RouteAction, RouteDecision, RouteOptions } from "./router";
+export { GitCliBranchManager } from "./git";
+export type { BranchManager } from "./git";
+export {
+  CodexPlannerAgent,
+  buildPlannerPrompt,
+  parsePlanWritten,
+} from "./planner-agent";
+export type {
+  CodexPlannerAgentOptions,
+  PlannerAgent,
+  PlannerAgentInput,
+  PlannerAgentResult,
+} from "./planner-agent";
 export {
   CodexRouterAgent,
   buildRouterPrompt,
