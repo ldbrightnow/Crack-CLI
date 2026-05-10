@@ -1,0 +1,4 @@
+interface:
+  display_name: "Crack CLI"
+  short_description: "Operate the Crack CLI workflow"
+  default_prompt: "Use $crack-cli to choose and run the next Crack CLI workflow step."
