@@ -100,6 +100,25 @@ class FlaskAppTest(unittest.TestCase):
             self.assertIn(b'name="reason"', response.data)
             self.assertIn(b"Submit Request", response.data)
 
+    def test_index_includes_state_polling_refresh_hooks(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir).resolve()
+            snapshot = sample_snapshot(root)
+
+            with patch("tools.flask_branch_visualizer.app.read_repository_snapshot", return_value=snapshot):
+                app = create_app(root)
+                response = app.test_client().get("/")
+
+            self.assertEqual(response.status_code, 200)
+            self.assertIn(b"const initialStateSnapshot = ", response.data)
+            self.assertIn(b"stableSerialize(initialStateSnapshot)", response.data)
+            self.assertIn(b"function pollState()", response.data)
+            self.assertIn(b"if (isActionRunning || isPollingState)", response.data)
+            self.assertIn(b'fetch("/api/state"', response.data)
+            self.assertIn(b"window.setInterval(pollState, statePollIntervalMs)", response.data)
+            self.assertIn(b"Repository state changed; refreshing page...", response.data)
+            self.assertIn(b"Live state refresh failed:", response.data)
+
     def test_index_submit_form_omits_plan_path_without_selected_plan(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir).resolve()
@@ -152,6 +171,24 @@ class FlaskAppTest(unittest.TestCase):
             self.assertIn(b"No .crack directory found.", response.data)
             self.assertIn(b"No plan files were found", response.data)
             self.assertIn(b"No plan is selected", response.data)
+
+    def test_api_state_remains_read_only_snapshot_endpoint(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir).resolve()
+            snapshot = sample_snapshot(root)
+
+            with (
+                patch("tools.flask_branch_visualizer.app.read_repository_snapshot", return_value=snapshot) as read_snapshot,
+                patch("tools.flask_branch_visualizer.app.run_action") as run,
+            ):
+                app = create_app(root, max_commits=5)
+                response = app.test_client().get("/api/state")
+
+            self.assertEqual(response.status_code, 200)
+            self.assertTrue(response.is_json)
+            self.assertEqual(response.get_json(), snapshot)
+            read_snapshot.assert_called_once_with(str(root), 5)
+            run.assert_not_called()
 
     def test_api_actions_runs_action_and_returns_refreshed_snapshot(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

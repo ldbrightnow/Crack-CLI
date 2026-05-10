@@ -772,6 +772,30 @@ PAGE_TEMPLATE = """<!doctype html>
       const status = document.querySelector("[data-action-status]");
       const output = document.querySelector("[data-command-output]");
       const storageKey = "crack-gui:last-action-result";
+      const initialStateSnapshot = {{ snapshot|tojson }};
+      const statePollIntervalMs = 4000;
+      let lastSeenStateSnapshot = stableSerialize(initialStateSnapshot);
+      let isActionRunning = false;
+      let isPollingState = false;
+
+      function stableSerialize(value) {
+        return JSON.stringify(sortForSerialization(value));
+      }
+
+      function sortForSerialization(value) {
+        if (Array.isArray(value)) {
+          return value.map(sortForSerialization);
+        }
+
+        if (!value || typeof value !== "object") {
+          return value;
+        }
+
+        return Object.keys(value).sort().reduce((sorted, key) => {
+          sorted[key] = sortForSerialization(value[key]);
+          return sorted;
+        }, {});
+      }
 
       function renderResult(result) {
         if (!result || !output || !status) {
@@ -795,6 +819,7 @@ PAGE_TEMPLATE = """<!doctype html>
       }
 
       function setRunning(isRunning) {
+        isActionRunning = isRunning;
         setDisabled(buttons, isRunning);
         setDisabled(submitControls, isRunning);
 
@@ -936,6 +961,44 @@ PAGE_TEMPLATE = """<!doctype html>
         const value = formData.get(name);
         return typeof value === "string" ? value.trim() : "";
       }
+
+      async function pollState() {
+        if (isActionRunning || isPollingState) {
+          return;
+        }
+
+        isPollingState = true;
+
+        try {
+          const response = await fetch("/api/state", {
+            headers: { "Accept": "application/json" },
+            cache: "no-store"
+          });
+          if (!response.ok) {
+            throw new Error("State polling failed.");
+          }
+
+          const snapshot = await response.json();
+          const serializedSnapshot = stableSerialize(snapshot);
+          if (serializedSnapshot !== lastSeenStateSnapshot) {
+            if (status) {
+              status.textContent = "Repository state changed; refreshing page...";
+            }
+            window.location.reload();
+            return;
+          }
+
+          lastSeenStateSnapshot = serializedSnapshot;
+        } catch (error) {
+          if (status && !isActionRunning) {
+            status.textContent = "Live state refresh failed: " + (error.message || String(error));
+          }
+        } finally {
+          isPollingState = false;
+        }
+      }
+
+      window.setInterval(pollState, statePollIntervalMs);
 
       if (refreshButton) {
         refreshButton.addEventListener("click", async () => {
