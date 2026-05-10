@@ -6,12 +6,14 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from flask import Flask, jsonify, render_template_string
+from flask import Flask, jsonify, render_template_string, request
 
 if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+    from tools.flask_branch_visualizer.actions import ActionError, run_action
     from tools.flask_branch_visualizer.state import find_repo_root, read_repository_snapshot
 else:
+    from .actions import ActionError, run_action
     from .state import find_repo_root, read_repository_snapshot
 
 
@@ -410,6 +412,25 @@ def create_app(repo_path: str | Path | None = None, max_commits: int = DEFAULT_W
     def api_state() -> Any:
         snapshot = read_repository_snapshot(repo_root, max_commits)
         return jsonify(snapshot)
+
+    @app.post("/api/actions")
+    def api_actions() -> Any:
+        payload = request.get_json(silent=True)
+        if not isinstance(payload, dict):
+            return jsonify({"error": "JSON body must be an object."}), 400
+
+        plan_path = payload.get("plan_path")
+        if plan_path is None:
+            plan_path = payload.get("planPath")
+
+        try:
+            result = run_action(payload.get("action") or payload.get("name"), repo_root, plan_path)
+        except ActionError as error:
+            return jsonify({"error": str(error)}), 400
+
+        response = result.to_dict()
+        response["snapshot"] = read_repository_snapshot(repo_root, max_commits)
+        return jsonify(response)
 
     return app
 
