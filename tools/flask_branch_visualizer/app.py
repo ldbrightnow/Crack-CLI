@@ -28,16 +28,16 @@ PAGE_TEMPLATE = """<!doctype html>
   <style>
     :root {
       color-scheme: light;
-      --bg: #f7f6f1;
-      --surface: #ffffff;
-      --surface-muted: #f0efe8;
-      --ink: #1f2523;
-      --muted: #64706c;
-      --line: #d7d3c8;
-      --green: #2f7a5f;
-      --amber: #a16322;
-      --red: #a43f3b;
-      --shadow: 0 18px 45px rgba(42, 38, 28, 0.09);
+      --bg: #f6f8f7;
+      --panel: #ffffff;
+      --panel-muted: #eef4f1;
+      --ink: #17201c;
+      --muted: #60716a;
+      --line: #d8e0dc;
+      --accent: #23735a;
+      --accent-strong: #16513e;
+      --warn: #9a5a20;
+      --danger: #9c3f3a;
     }
 
     * {
@@ -46,37 +46,26 @@ PAGE_TEMPLATE = """<!doctype html>
 
     body {
       margin: 0;
-      background:
-        linear-gradient(120deg, rgba(47, 122, 95, 0.10), transparent 34%),
-        linear-gradient(240deg, rgba(161, 99, 34, 0.12), transparent 32%),
-        var(--bg);
+      background: var(--bg);
       color: var(--ink);
       font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 15px;
       line-height: 1.5;
     }
 
     .shell {
-      width: min(1180px, calc(100% - 32px));
+      width: min(1120px, calc(100% - 32px));
       margin: 0 auto;
-      padding: 28px 0 48px;
+      padding: 24px 0 40px;
     }
 
-    .masthead {
+    .topbar {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) minmax(280px, 420px);
-      gap: 24px;
-      align-items: end;
-      padding: 24px 0 22px;
+      grid-template-columns: minmax(0, 1fr) minmax(280px, 480px);
+      gap: 20px;
+      align-items: start;
+      padding-bottom: 18px;
       border-bottom: 1px solid var(--line);
-    }
-
-    .eyebrow {
-      margin: 0 0 8px;
-      color: var(--green);
-      font-size: 0.78rem;
-      font-weight: 700;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
     }
 
     h1,
@@ -87,100 +76,108 @@ PAGE_TEMPLATE = """<!doctype html>
     }
 
     h1 {
-      max-width: 760px;
-      margin-bottom: 0;
-      font-family: ui-serif, Georgia, Cambria, "Times New Roman", serif;
-      font-size: clamp(2.25rem, 5vw, 4.8rem);
-      font-weight: 700;
-      line-height: 0.95;
+      margin-bottom: 8px;
+      font-size: 1.9rem;
+      line-height: 1.15;
     }
 
     h2 {
-      margin-bottom: 14px;
-      font-size: 1rem;
+      margin-bottom: 12px;
+      font-size: 0.82rem;
       letter-spacing: 0.08em;
       text-transform: uppercase;
     }
 
     h3 {
-      margin-bottom: 12px;
+      margin-bottom: 4px;
       font-size: 1rem;
     }
 
-    .repo-summary,
-    .empty-state,
-    .warning-list {
-      border: 1px solid var(--line);
-      background: rgba(255, 255, 255, 0.72);
-      box-shadow: var(--shadow);
-    }
-
-    .repo-summary {
-      display: grid;
-      gap: 8px;
-      padding: 16px;
-    }
-
-    .repo-summary span,
-    .metric-label,
+    .muted,
     .meta,
-    .muted {
+    .label {
       color: var(--muted);
-      font-size: 0.86rem;
+      font-size: 0.88rem;
     }
 
-    .repo-summary strong,
-    code {
+    .summary,
+    .notice,
+    .card,
+    .timeline-item {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+    }
+
+    .summary {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      gap: 6px 14px;
+      padding: 14px;
+    }
+
+    .summary strong,
+    code,
+    .refs {
       overflow-wrap: anywhere;
       word-break: break-word;
     }
 
+    .notice {
+      margin-top: 16px;
+      padding: 14px;
+    }
+
+    .notice.warning {
+      border-color: rgba(156, 63, 58, 0.35);
+      color: var(--danger);
+    }
+
+    .notice ul {
+      margin: 8px 0 0;
+      padding-left: 18px;
+    }
+
     .section {
-      padding-top: 28px;
+      padding-top: 24px;
     }
 
     .grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-      gap: 14px;
+      gap: 12px;
     }
 
     .card,
     .timeline-item {
-      border: 1px solid var(--line);
-      background: var(--surface);
-      box-shadow: 0 10px 28px rgba(42, 38, 28, 0.06);
-    }
-
-    .card {
-      padding: 16px;
+      padding: 14px;
     }
 
     .card.current {
-      border-color: rgba(47, 122, 95, 0.55);
+      border-color: rgba(35, 115, 90, 0.58);
     }
 
-    .card-title {
+    .card-head {
       display: flex;
       justify-content: space-between;
       gap: 12px;
-      margin-bottom: 14px;
+      margin-bottom: 12px;
     }
 
-    .tag {
+    .pill {
       align-self: flex-start;
       border: 1px solid var(--line);
+      border-radius: 999px;
       padding: 2px 8px;
       color: var(--muted);
       font-size: 0.74rem;
       font-weight: 700;
-      text-transform: uppercase;
       white-space: nowrap;
     }
 
-    .tag.current {
-      border-color: rgba(47, 122, 95, 0.38);
-      color: var(--green);
+    .pill.current {
+      border-color: rgba(35, 115, 90, 0.45);
+      color: var(--accent-strong);
     }
 
     .metrics {
@@ -191,50 +188,48 @@ PAGE_TEMPLATE = """<!doctype html>
     }
 
     .metric {
-      padding: 10px;
-      background: var(--surface-muted);
+      min-width: 0;
+      padding: 8px;
+      border-radius: 6px;
+      background: var(--panel-muted);
     }
 
     .metric-value {
       display: block;
-      font-size: 1.2rem;
       font-weight: 800;
     }
 
     .progress {
-      height: 8px;
+      height: 7px;
       overflow: hidden;
-      background: var(--surface-muted);
+      border-radius: 999px;
+      background: var(--panel-muted);
     }
 
     .progress span {
       display: block;
       height: 100%;
-      background: linear-gradient(90deg, var(--green), var(--amber));
+      background: var(--accent);
     }
 
     code {
       display: block;
-      padding: 10px 12px;
-      background: #242923;
-      color: #f6f1df;
-      font-size: 0.83rem;
+      padding: 9px 10px;
+      border-radius: 6px;
+      background: #1f2723;
+      color: #f6fbf8;
+      font-size: 0.84rem;
     }
 
-    .empty-state,
-    .warning-list {
-      margin-top: 20px;
-      padding: 18px;
+    .hash {
+      color: var(--accent-strong);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      font-weight: 800;
     }
 
-    .warning-list {
-      border-color: rgba(164, 63, 59, 0.28);
-      color: var(--red);
-    }
-
-    .warning-list ul {
-      margin: 8px 0 0;
-      padding-left: 18px;
+    .subject {
+      margin-bottom: 6px;
+      font-weight: 700;
     }
 
     .timeline {
@@ -246,33 +241,21 @@ PAGE_TEMPLATE = """<!doctype html>
       display: grid;
       grid-template-columns: 112px minmax(0, 1fr);
       gap: 14px;
-      padding: 14px 16px;
-    }
-
-    .hash {
-      color: var(--green);
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-      font-weight: 800;
     }
 
     .refs {
-      color: var(--amber);
+      color: var(--warn);
       font-size: 0.86rem;
-      overflow-wrap: anywhere;
-    }
-
-    .subject {
-      margin-bottom: 6px;
-      font-weight: 700;
     }
 
     @media (max-width: 760px) {
       .shell {
-        width: min(100% - 20px, 1180px);
-        padding-top: 14px;
+        width: min(100% - 20px, 1120px);
+        padding-top: 16px;
       }
 
-      .masthead,
+      .topbar,
+      .summary,
       .timeline-item {
         grid-template-columns: 1fr;
       }
@@ -285,21 +268,21 @@ PAGE_TEMPLATE = """<!doctype html>
 </head>
 <body>
   <main class="shell">
-    <header class="masthead">
+    <header class="topbar">
       <div>
-        <p class="eyebrow">Local read-only view</p>
         <h1>Crack Branch Visualizer</h1>
+        <p class="muted">Local read-only view of Markdown workflow state and git history.</p>
       </div>
-      <div class="repo-summary" aria-label="Repository summary">
-        <span>Repository</span>
+      <div class="summary" aria-label="Repository summary">
+        <span class="label">Repository</span>
         <strong>{{ snapshot.repo_root }}</strong>
-        <span>Current branch</span>
+        <span class="label">Current branch</span>
         <strong>{{ snapshot.git.current_branch or "detached or unknown" }}</strong>
       </div>
     </header>
 
     {% if snapshot.warnings %}
-      <section class="warning-list" aria-label="Warnings">
+      <section class="notice warning" aria-label="Warnings">
         <strong>Warnings</strong>
         <ul>
           {% for warning in snapshot.warnings %}
@@ -310,7 +293,7 @@ PAGE_TEMPLATE = """<!doctype html>
     {% endif %}
 
     {% if not snapshot.initialized %}
-      <section class="empty-state">
+      <section class="notice">
         <h2>No .crack State Found</h2>
         <p class="muted">This repository has no readable <strong>.crack/</strong> directory yet. Git branches and recent commits are still shown when available.</p>
       </section>
@@ -321,12 +304,12 @@ PAGE_TEMPLATE = """<!doctype html>
           <div class="grid">
             {% for plan in snapshot.plans %}
               <article class="card">
-                <div class="card-title">
+                <div class="card-head">
                   <div>
                     <h3>{{ plan.title }}</h3>
                     <p class="meta">{{ plan.branch }}</p>
                   </div>
-                  <span class="tag">{{ plan.queue_request_count }} queued</span>
+                  <span class="pill">{{ plan.queue_request_count }} queued</span>
                 </div>
                 <div class="progress" aria-label="Plan progress">
                   <span style="width: {{ progress_percent(plan) }}%"></span>
@@ -334,15 +317,15 @@ PAGE_TEMPLATE = """<!doctype html>
                 <div class="metrics">
                   <div class="metric">
                     <span class="metric-value">{{ plan.completed_commit_unit_count }}/{{ plan.total_commit_unit_count }}</span>
-                    <span class="metric-label">commit units</span>
+                    <span class="label">commit units</span>
                   </div>
                   <div class="metric">
                     <span class="metric-value">{{ progress_percent(plan) }}%</span>
-                    <span class="metric-label">complete</span>
+                    <span class="label">complete</span>
                   </div>
                   <div class="metric">
                     <span class="metric-value">{{ plan.queue_request_count }}</span>
-                    <span class="metric-label">queue</span>
+                    <span class="label">queue</span>
                   </div>
                 </div>
                 <p><strong>Next:</strong> {{ next_commit_text(plan) }}</p>
@@ -362,10 +345,10 @@ PAGE_TEMPLATE = """<!doctype html>
         <div class="grid">
           {% for branch in snapshot.git.branches %}
             <article class="card{% if branch.name == snapshot.git.current_branch %} current{% endif %}">
-              <div class="card-title">
+              <div class="card-head">
                 <h3>{{ branch.name }}</h3>
                 {% if branch.name == snapshot.git.current_branch %}
-                  <span class="tag current">current</span>
+                  <span class="pill current">current</span>
                 {% endif %}
               </div>
               <p><span class="hash">{{ branch.short_hash or "no hash" }}</span></p>
